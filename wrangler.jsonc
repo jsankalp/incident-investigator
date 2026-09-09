@@ -29,6 +29,12 @@
 			"database_id": "b4e74540-869b-451e-807a-78ed8835df91"
 		}
 	],
+	"r2_buckets": [
+		{
+			"binding": "incident_bucket",
+			"bucket_name": "incident-investigator-data"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{
