@@ -30,4 +30,4 @@ https://incident-investigator.sankalp-jain02.workers.dev/
 ![Application screenshot](docs/images/3.png)
 
 
-### A sample run
+### [Conversation with the Agent](docs/sample_run.txt)
