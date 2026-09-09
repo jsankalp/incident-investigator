@@ -22,6 +22,13 @@
 			"/oauth/*"
 		]
 	},
+	"d1_databases": [
+		{
+			"binding": "incident_db",
+			"database_name": "incident-db",
+			"database_id": "b4e74540-869b-451e-807a-78ed8835df91"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{

@@ -51,10 +51,12 @@ export class ChatAgent extends AIChatAgent<Env> {
     const workersai = createWorkersAI({ binding: this.env.AI });
 
     const result = streamText({
-      model: workersai("@cf/moonshotai/kimi-k2.7-code", {
+      model: workersai("@cf/zai-org/glm-4.7-flash", {
         sessionAffinity: this.sessionAffinity
       }),
-      system: `You are a helpful assistant that can understand images. You can check the weather, get the user's timezone, run calculations, and schedule tasks. When users share images, describe what you see and answer questions about them.
+      system: `You are an incident investigation assistant. Use getMetrics to inspect service health and explain meaningful changes in the returned time series. When users share images, describe what you see and answer questions about them.
+
+Language policy: respond in English by default. If the user explicitly requests another language, then respond in that language instead. Do not mix languages unless the user asks for it.
 
 ${getSchedulePrompt({ date: new Date() })}
 
@@ -68,6 +70,39 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
       tools: {
         // MCP tools from connected servers
         ...mcpTools,
+
+        getMetrics: tool({
+          description:
+            "Get a fake but realistic minute-by-minute production metric series for a service. Use this to investigate incidents and identify sharp changes or trends.",
+          inputSchema: z.object({
+            service: z.string().describe("Service name, for example checkout"),
+            metric: z.string().describe("Metric name, for example latency p95"),
+            start: z
+              .string()
+              .describe("Start of the time range, for example 14:00"),
+            end: z.string().describe("End of the time range, for example 14:05")
+          }),
+          execute: async ({ service, metric, start, end }) => {
+            const values = [190, 205, 198, 480, 720, 850];
+            const startMinutes = Number.parseInt(
+              start.split(":")[1] ?? "0",
+              10
+            );
+            const hour = start.split(":")[0] ?? "14";
+
+            return {
+              service,
+              metric,
+              start,
+              end,
+              unit: "ms",
+              data: values.map((value, index) => ({
+                timestamp: `${hour}:${String(startMinutes + index).padStart(2, "0")}`,
+                value
+              }))
+            };
+          }
+        }),
 
         // Server-side tool: runs automatically on the server
         getWeather: tool({
