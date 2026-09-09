@@ -261,6 +261,8 @@ function ToolPartView({
 
 function Chat() {
   const [connected, setConnected] = useState(false);
+  const [services, setServices] = useState<string[]>([]);
+  const [selectedService, setSelectedService] = useState("");
   const [input, setInput] = useState("");
   const [showDebug, setShowDebug] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -374,6 +376,26 @@ function Chat() {
     }
   });
 
+  useEffect(() => {
+    if (!connected) return;
+
+    let active = true;
+    agent.stub
+      .getServices()
+      .then((loadedServices: string[]) => {
+        if (!active) return;
+        setServices(loadedServices);
+        setSelectedService((current) => current || loadedServices[0] || "");
+      })
+      .catch((error: unknown) => {
+        console.error("Failed to load services:", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [agent, connected]);
+
   const isStreaming = status === "streaming" || status === "submitted";
 
   useEffect(() => {
@@ -451,7 +473,12 @@ function Chat() {
       | { type: "text"; text: string }
       | { type: "file"; mediaType: string; url: string }
     > = [];
-    if (text) parts.push({ type: "text", text });
+    if (text) {
+      const serviceContext = selectedService
+        ? `[Selected service: ${selectedService}] `
+        : "";
+      parts.push({ type: "text", text: `${serviceContext}${text}` });
+    }
 
     for (const att of attachments) {
       const dataUri = await fileToDataUri(att.file);
@@ -463,7 +490,20 @@ function Chat() {
 
     sendMessage({ role: "user", parts });
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-  }, [input, attachments, isStreaming, sendMessage]);
+  }, [input, attachments, isStreaming, selectedService, sendMessage]);
+
+  const sendSuggestedPrompt = useCallback(
+    (prompt: string) => {
+      const serviceContext = selectedService
+        ? `[Selected service: ${selectedService}] `
+        : "";
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: `${serviceContext}${prompt}` }]
+      });
+    },
+    [selectedService, sendMessage]
+  );
 
   return (
     <div
@@ -707,19 +747,14 @@ function Chat() {
                     "Check latency for last 1 hour",
                     "Check if any deployments happened in the last 30 minutes",
                     "Were there any scaling events in the last 15 minutes?",
-                    "Errors for checkout service in the last 10 minutes",
+                    "Errors for checkout service in the last 10 minutes"
                   ].map((prompt) => (
                     <Button
                       key={prompt}
                       variant="outline"
                       size="sm"
                       disabled={isStreaming}
-                      onClick={() => {
-                        sendMessage({
-                          role: "user",
-                          parts: [{ type: "text", text: prompt }]
-                        });
-                      }}
+                      onClick={() => sendSuggestedPrompt(prompt)}
                     >
                       {prompt}
                     </Button>
@@ -892,6 +927,32 @@ function Chat() {
               ))}
             </div>
           )}
+
+          <div className="mb-2 flex items-center gap-2">
+            <label
+              htmlFor="service-select"
+              className="text-xs font-medium text-kumo-subtle"
+            >
+              Service
+            </label>
+            <select
+              id="service-select"
+              value={selectedService}
+              onChange={(e) => setSelectedService(e.target.value)}
+              disabled={!connected || isStreaming || services.length === 0}
+              className="min-w-48 rounded-lg border border-kumo-line bg-kumo-base px-2.5 py-1.5 text-sm text-kumo-default focus:outline-none focus:ring-1 focus:ring-kumo-accent disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {services.length === 0 ? (
+                <option value="">Loading services...</option>
+              ) : (
+                services.map((service) => (
+                  <option key={service} value={service}>
+                    {service}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
 
           <div className="flex items-end gap-3 rounded-xl border border-kumo-line bg-kumo-base p-3 shadow-sm focus-within:ring-2 focus-within:ring-kumo-ring focus-within:border-transparent transition-shadow">
             <Button
