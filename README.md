@@ -22,12 +22,21 @@ The LLM is responsible for reasoning, while tools provide access to telemetry.
 Visit here:
 https://incident-investigator.sankalp-jain02.workers.dev/
 
+### Assumptions
+
+1. The agent works on data stored in D1. The data includes mock logs, prometheus data points, scaling events, deployments etc.
+2. As the mock data is tied to a specific time, the chat agent assumes some time close to the mock data and operates on that. This way queries like last 10 hours, latency over last 10 minutes can work.
+3. At the bottom of the UI, we provide a service list which can be used to check metrics for a particular service.
+
+
 ### Screenshots
 
 
 ![Application screenshot](docs/images/1.png)
+
 ![Application screenshot](docs/images/2.png)
+
 ![Application screenshot](docs/images/3.png)
 
 
-### [Conversation with the Agent](docs/sample_run.txt)
+### [Conversation with the agent](docs/sample_run.txt)

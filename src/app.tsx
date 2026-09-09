@@ -730,7 +730,7 @@ function Chat() {
           {messages.length === 0 && (
             <Empty
               icon={<ChatCircleDotsIcon size={32} />}
-              title="Incient Response Agent"
+              title="Incident Response Agent"
               contents={
                 <div className="flex flex-wrap justify-center gap-2">
                   {[
