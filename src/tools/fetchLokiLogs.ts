@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-type ToolAgent = { readonly env: Env };
+import { getUtcTimeRange } from "./time";
+import { assertKnownService, type ToolAgent } from "./service";
 
 export function createFetchLokiLogsTool(agent: ToolAgent) {
   return tool({
@@ -17,14 +17,18 @@ export function createFetchLokiLogsTool(agent: ToolAgent) {
           'LogQL query generated for the investigation, for example {service="checkout"} |= "ERROR"'
         ),
 
-      start: z.string().describe("Start of the time range, for example 14:00"),
+      start: z
+        .string()
+        .describe("Start date-time, for example 2026-09-08 14:09"),
 
-      end: z.string().describe("End of the time range, for example 14:30")
+      end: z
+        .string()
+        .describe("End UTC date-time, for example 2026-09-09 14:09")
     }),
 
     execute: async ({ service, logql, start, end }) => {
-      const startMinute = start.slice(0, 5);
-      const endMinute = end.slice(0, 5);
+      assertKnownService(service, agent.services);
+      const { startUtc, endUtc } = getUtcTimeRange(start, end);
 
       const db = agent.env.incident_db;
       if (db) {
@@ -32,8 +36,8 @@ export function createFetchLokiLogsTool(agent: ToolAgent) {
           SELECT service, timestamp, level, message
           FROM loki_logs
           WHERE service = '${service}'
-            AND substr(timestamp, 1, 5) >= '${startMinute}'
-            AND substr(timestamp, 1, 5) <= '${endMinute}'
+            AND date || ' ' || timestamp >= '${startUtc}'
+            AND date || ' ' || timestamp <= '${endUtc}'
           ORDER BY timestamp ASC
         `;
 
@@ -42,8 +46,8 @@ export function createFetchLokiLogsTool(agent: ToolAgent) {
           logql,
           start,
           end,
-          startMinute,
-          endMinute,
+          startUtc,
+          endUtc,
           rawQuery: query
         });
 
@@ -54,12 +58,12 @@ export function createFetchLokiLogsTool(agent: ToolAgent) {
                 SELECT service, timestamp, level, message
                 FROM loki_logs
                 WHERE service = ?
-                  AND substr(timestamp, 1, 5) >= ?
-                  AND substr(timestamp, 1, 5) <= ?
+                  AND date || ' ' || timestamp >= ?
+                  AND date || ' ' || timestamp <= ?
                 ORDER BY timestamp ASC
               `
             )
-            .bind(service, startMinute, endMinute)
+            .bind(service, startUtc, endUtc)
             .all<{
               service: string;
               timestamp: string;
@@ -89,8 +93,8 @@ export function createFetchLokiLogsTool(agent: ToolAgent) {
             logql,
             start,
             end,
-            startMinute,
-            endMinute,
+            startUtc,
+            endUtc,
             error
           });
           throw error;

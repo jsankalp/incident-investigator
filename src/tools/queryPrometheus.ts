@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-type ToolAgent = { readonly env: Env };
+import { getUtcTimeRange } from "./time";
+import { assertKnownService, type ToolAgent } from "./service";
 
 export function createQueryPrometheusTool(agent: ToolAgent) {
   return tool({
@@ -17,14 +17,18 @@ export function createQueryPrometheusTool(agent: ToolAgent) {
           'PromQL query generated for the investigation, for example rate(http_requests_total{service="checkout"}[5m])'
         ),
 
-      start: z.string().describe("Start of the time range, for example 14:00"),
+      start: z
+        .string()
+        .describe("Start date-time, for example 2026-09-08 14:09"),
 
-      end: z.string().describe("End of the time range, for example 14:30")
+      end: z
+        .string()
+        .describe("End UTC date-time, for example 2026-09-09 14:09")
     }),
 
     execute: async ({ service, promql, start, end }) => {
-      const startMinute = start.slice(0, 5);
-      const endMinute = end.slice(0, 5);
+      assertKnownService(service, agent.services);
+      const { startUtc, endUtc } = getUtcTimeRange(start, end);
 
       const db = agent.env.incident_db;
       if (db) {
@@ -32,8 +36,8 @@ export function createQueryPrometheusTool(agent: ToolAgent) {
           SELECT service, timestamp, metric, value, unit
           FROM prom_metrics
           WHERE service = '${service}'
-            AND substr(timestamp, 1, 5) >= '${startMinute}'
-            AND substr(timestamp, 1, 5) <= '${endMinute}'
+            AND date || ' ' || timestamp >= '${startUtc}'
+            AND date || ' ' || timestamp <= '${endUtc}'
           ORDER BY timestamp ASC
         `;
 
@@ -42,8 +46,8 @@ export function createQueryPrometheusTool(agent: ToolAgent) {
           promql,
           start,
           end,
-          startMinute,
-          endMinute,
+          startUtc,
+          endUtc,
           rawQuery: query
         });
 
@@ -54,12 +58,12 @@ export function createQueryPrometheusTool(agent: ToolAgent) {
                 SELECT service, timestamp, metric, value, unit
                 FROM prom_metrics
                 WHERE service = ?
-                  AND substr(timestamp, 1, 5) >= ?
-                  AND substr(timestamp, 1, 5) <= ?
+                  AND date || ' ' || timestamp >= ?
+                  AND date || ' ' || timestamp <= ?
                 ORDER BY timestamp ASC
               `
             )
-            .bind(service, startMinute, endMinute)
+            .bind(service, startUtc, endUtc)
             .all<{
               service: string;
               timestamp: string;
@@ -92,8 +96,8 @@ export function createQueryPrometheusTool(agent: ToolAgent) {
             promql,
             start,
             end,
-            startMinute,
-            endMinute,
+            startUtc,
+            endUtc,
             error
           });
           throw error;

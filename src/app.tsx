@@ -37,7 +37,8 @@ import {
   XIcon,
   WrenchIcon,
   PaperclipIcon,
-  ImageIcon
+  ImageIcon,
+  InfoIcon
 } from "@phosphor-icons/react";
 
 // ── Attachment helpers ────────────────────────────────────────────────
@@ -362,18 +363,7 @@ function Chat() {
     status
   } = useAgentChat({
     agent,
-    experimental_throttle: 100,
-    onToolCall: async ({ toolCall, addToolOutput }) => {
-      if (toolCall.toolName === "getUserTimezone") {
-        addToolOutput({
-          toolCallId: toolCall.toolCallId,
-          output: {
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            localTime: new Date().toLocaleTimeString()
-          }
-        });
-      }
-    }
+    experimental_throttle: 100
   });
 
   useEffect(() => {
@@ -744,10 +734,10 @@ function Chat() {
               contents={
                 <div className="flex flex-wrap justify-center gap-2">
                   {[
-                    "Check latency for last 1 hour",
-                    "Check if any deployments happened in the last 30 minutes",
-                    "Were there any scaling events in the last 15 minutes?",
-                    "Errors for checkout service in the last 10 minutes"
+                    "Check latency for last 5 hour for search service",
+                    "Check if any deployments happened in the last 5 hours for search service",
+                    "Were there any scaling events in the last 10 hours?",
+                    "Errors for search service in the last 2 hours"
                   ].map((prompt) => (
                     <Button
                       key={prompt}
@@ -935,6 +925,30 @@ function Chat() {
             >
               Service
             </label>
+            <div className="relative group">
+              <button
+                type="button"
+                aria-label="How to use the incident response agent"
+                aria-describedby="service-help-tooltip"
+                className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-kumo-brand text-kumo-brand transition-colors hover:bg-kumo-brand hover:text-kumo-inverse focus:outline-none focus:ring-2 focus:ring-kumo-ring"
+              >
+                <InfoIcon size={13} weight="bold" />
+              </button>
+              <div
+                id="service-help-tooltip"
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-0 z-20 mb-3 hidden w-80 rounded-xl border-2 border-kumo-brand bg-kumo-base p-4 text-sm text-kumo-default shadow-xl group-hover:block group-focus-within:block"
+              >
+                <div className="mb-1 font-semibold text-kumo-brand">
+                  How to use the agent
+                </div>
+                <p className="leading-relaxed">
+                  Select a service to investigate. The agent can answer API call
+                  latencies, database latency, deployments, AWS scaling events,
+                  and Loki log questions.
+                </p>
+              </div>
+            </div>
             <select
               id="service-select"
               value={selectedService}

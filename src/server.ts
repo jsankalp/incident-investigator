@@ -11,8 +11,8 @@ import { AGENT_MODEL, INCIDENT_INVESTIGATION_PROMPT } from "./constants";
 import {
   createFetchLokiLogsTool,
   createGetAwsScalingEventsTool,
-  createQueryPrometheusTool,
-  getUserTimezoneTool
+  createGetDeploymentsTool,
+  createQueryPrometheusTool
 } from "./tools";
 
 export class ChatAgent extends AIChatAgent<Env> {
@@ -36,7 +36,13 @@ export class ChatAgent extends AIChatAgent<Env> {
       )
       .all<{ service: string }>();
 
-    this.services = rows.results.map((row) => row.service);
+    this.services = rows.results
+      .map((row) => row.service)
+      .sort((left, right) => {
+        if (left === "search") return -1;
+        if (right === "search") return 1;
+        return left.localeCompare(right);
+      });
 
     // Configure OAuth popup behavior for MCP servers that require authentication.
     this.mcp.configureOAuthCallback({
@@ -83,7 +89,9 @@ export class ChatAgent extends AIChatAgent<Env> {
         sessionAffinity: this.sessionAffinity
       }),
 
-      system: INCIDENT_INVESTIGATION_PROMPT,
+      system: `${INCIDENT_INVESTIGATION_PROMPT}
+
+    Authoritative services available for investigation: ${this.services.join(", ") || "none"}. Never invent or substitute a service name.`,
 
       messages: pruneMessages({
         messages: await convertToModelMessages(this.messages),
@@ -95,10 +103,22 @@ export class ChatAgent extends AIChatAgent<Env> {
         // MCP tools from connected servers.
         ...mcpTools,
 
-        queryPrometheus: createQueryPrometheusTool({ env: this.env }),
-        fetchLokiLogs: createFetchLokiLogsTool({ env: this.env }),
-        getAwsScalingEvents: createGetAwsScalingEventsTool({ env: this.env }),
-        getUserTimezone: getUserTimezoneTool
+        queryPrometheus: createQueryPrometheusTool({
+          env: this.env,
+          services: this.services
+        }),
+        fetchLokiLogs: createFetchLokiLogsTool({
+          env: this.env,
+          services: this.services
+        }),
+        getAwsScalingEvents: createGetAwsScalingEventsTool({
+          env: this.env,
+          services: this.services
+        }),
+        getDeployments: createGetDeploymentsTool({
+          env: this.env,
+          services: this.services
+        })
       },
 
       stopWhen: stepCountIs(20),
